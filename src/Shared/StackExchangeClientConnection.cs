@@ -5,6 +5,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Web.SessionState;
 using StackExchange.Redis;
 
@@ -75,22 +76,19 @@ namespace Microsoft.Web.Redis
             get { return connection; }
         }
 
-        public void Open()
-        { }
-
-        public void Close()
+        public async Task CloseAsync()
         {
-            redisMultiplexer.Close();
+            await redisMultiplexer.CloseAsync();
         }
 
-        public bool Expiry(string key, int timeInSeconds)
+        public async Task<bool> ExpiryAsync(string key, int timeInSeconds)
         {
             TimeSpan timeSpan = new TimeSpan(0, 0, timeInSeconds);
             RedisKey redisKey = key;
-            return (bool)RetryLogic(() => connection.KeyExpire(redisKey,timeSpan));
+            return (bool) await RetryLogic(() => connection.KeyExpireAsync(redisKey, timeSpan));
         }
 
-        public object Eval(string script, string[] keyArgs, object[] valueArgs)
+        public async Task<object> EvalAsync(string script, string[] keyArgs, object[] valueArgs)
         {
             RedisKey[] redisKeyArgs = new RedisKey[keyArgs.Length];
             RedisValue[] redisValueArgs = new RedisValue[valueArgs.Length];
@@ -117,21 +115,21 @@ namespace Microsoft.Web.Redis
                 }
                 i++;
             }
-            return RetryLogic(() => connection.ScriptEvaluate(script, redisKeyArgs, redisValueArgs));
+            return await RetryLogic(() => connection.ScriptEvaluateAsync(script, redisKeyArgs, redisValueArgs));
         }
 
-        private object RetryForScriptNotFound(Func<object> redisOperation)
+        private async Task<T> RetryForScriptNotFound<T>(Func<Task<T>> redisOperation)
         {
             try
             {
-                return redisOperation.Invoke();
+                return await redisOperation.Invoke();
             }
             catch (Exception e)
             {
                 if (e.Message.Contains("NOSCRIPT"))
                 {
                     // Second call should pass if it was script not found issue
-                    return redisOperation.Invoke();
+                    return await redisOperation.Invoke();
                 }
                 throw;
             }
@@ -140,7 +138,7 @@ namespace Microsoft.Web.Redis
         /// <summary>
         /// If retry timout is provide than we will retry first time after 20 ms and after that every 1 sec till retry timout is expired or we get value.
         /// </summary>
-        private object RetryLogic(Func<object> redisOperation)
+        private async Task<T> RetryLogic<T>(Func<Task<T>> redisOperation)
         {
             int timeToSleepBeforeRetryInMiliseconds = 20;
             DateTime startTime = DateTime.Now;
@@ -148,7 +146,7 @@ namespace Microsoft.Web.Redis
             {
                 try
                 {
-                    return RetryForScriptNotFound(redisOperation);
+                    return await RetryForScriptNotFound(redisOperation);
                 }
                 catch (Exception)
                 {
@@ -168,7 +166,7 @@ namespace Microsoft.Web.Redis
                     }
 
                     // First time try after 20 msec after that try after 1 second
-                    System.Threading.Thread.Sleep(timeToSleepBeforeRetryInMiliseconds);
+                    await Task.Delay(timeToSleepBeforeRetryInMiliseconds);
                     timeToSleepBeforeRetryInMiliseconds = 1000;
                 }
             }
@@ -200,11 +198,6 @@ namespace Microsoft.Web.Redis
         }
 
         public string GetLockId(object rowDataFromRedis)
-        {
-            return StackExchangeClientConnection.GetLockIdStatic(rowDataFromRedis);
-        }
-
-        internal static string GetLockIdStatic(object rowDataFromRedis)
         {
             RedisResult rowDataAsRedisResult = (RedisResult)rowDataFromRedis;
             RedisResult[] lockScriptReturnValueArray = (RedisResult[])rowDataAsRedisResult;
@@ -243,25 +236,25 @@ namespace Microsoft.Web.Redis
             return sessionData;
         }
 
-        public void Set(string key, byte[] data, DateTime utcExpiry)
+        public async Task SetAsync(string key, byte[] data, DateTime utcExpiry)
         {
             RedisKey redisKey = key;
             RedisValue redisValue = data;
             TimeSpan timeSpanForExpiry = utcExpiry - DateTime.UtcNow;
-            connection.StringSet(redisKey, redisValue, timeSpanForExpiry);
+            await connection.StringSetAsync(redisKey, redisValue, timeSpanForExpiry);
         }
 
-        public byte[] Get(string key)
+        public async Task<byte[]> GetAsync(string key)
         {
             RedisKey redisKey = key;
-            RedisValue redisValue = connection.StringGet(redisKey);
+            RedisValue redisValue = await connection.StringGetAsync(redisKey);
             return (byte[]) redisValue;
         }
 
-        public void Remove(string key)
+        public async Task RemoveAsync(string key)
         {
             RedisKey redisKey = key;
-            connection.KeyDelete(redisKey);
+            await connection.KeyDeleteAsync(redisKey);
         }
 
         public byte[] GetOutputCacheDataFromResult(object rowDataFromRedis) 

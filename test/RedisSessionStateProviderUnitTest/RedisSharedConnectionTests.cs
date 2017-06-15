@@ -3,11 +3,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 
-using FakeItEasy;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Web.SessionState;
 using Xunit;
@@ -45,22 +41,22 @@ namespace Microsoft.Web.Redis.Tests
     {
         public FakeRedisClientConnection()
         { }
-
-        public void Open()
-        { }
-        public void Close()
-        { }
-
-        public bool Expiry(string key, int timeInSeconds)
+        
+        public virtual async Task CloseAsync()
         {
-            return false;
+            await Task.FromResult(0);
         }
 
-        public object Eval(string script, string[] keyArgs, object[] valueArgs)
+        public virtual async Task<bool> ExpiryAsync(string key, int timeInSeconds)
         {
-            return null;
+            return await Task.FromResult(false);
         }
 
+        public virtual async Task<object> EvalAsync(string script, string[] keyArgs, object[] valueArgs)
+        {
+            return await Task.FromResult((object)null);
+        }
+        
         public string GetLockId(object rowDataFromRedis)
         {
             return null;
@@ -81,16 +77,20 @@ namespace Microsoft.Web.Redis.Tests
             return null;
         }
 
-        public void Set(string key, byte[] data, DateTime utcExpiry)
-        { }
-
-        public byte[] Get(string key)
+        public virtual async Task SetAsync(string key, byte[] data, DateTime utcExpiry)
         {
-            return null;
+            await Task.FromResult(0);
         }
 
-        public void Remove(string key)
-        { }
+        public virtual async Task<byte[]> GetAsync(string key)
+        {
+            return await Task.FromResult((byte[])null);
+        }
+
+        public virtual async Task RemoveAsync(string key)
+        {
+            await Task.FromResult(0);
+        }
 
         public byte[] GetOutputCacheDataFromResult(object rowDataFromRedis)
         {

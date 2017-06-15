@@ -4,11 +4,12 @@
 //
 
 using System;
+using System.Threading.Tasks;
 using System.Web.Caching;
 
 namespace Microsoft.Web.Redis
 {
-    public class RedisOutputCacheProvider : OutputCacheProvider
+    public class RedisOutputCacheProvider : OutputCacheProviderAsync
     {
         internal static ProviderConfiguration configuration;
         internal static object configurationCreationLock = new object();
@@ -48,10 +49,15 @@ namespace Microsoft.Web.Redis
 
         public override object Get(string key)
         {
+            return GetAsync(key).Result;
+        }
+
+        public override async Task<object> GetAsync(string key)
+        {
             try
             {
                 GetAccessToCacheStore();
-                return cache.Get(key);
+                return await cache.GetAsync(key);
             }
             catch(Exception e)
             {
@@ -62,10 +68,15 @@ namespace Microsoft.Web.Redis
 
         public override object Add(string key, object entry, DateTime utcExpiry)
         {
+            return AddAsync(key, entry, utcExpiry).Result;
+        }
+
+        public override async Task<object> AddAsync(string key, object entry, DateTime utcExpiry)
+        {
             try
             {
                 GetAccessToCacheStore();
-                return cache.Add(key, entry, utcExpiry);
+                return await cache.AddAsync(key, entry, utcExpiry);
             }
             catch (Exception e)
             {
@@ -76,10 +87,15 @@ namespace Microsoft.Web.Redis
 
         public override void Set(string key, object entry, DateTime utcExpiry)
         {
+            SetAsync(key, entry, utcExpiry).Wait();
+        }
+
+        public override async Task SetAsync(string key, object entry, DateTime utcExpiry)
+        {
             try
             {
                 GetAccessToCacheStore();
-                cache.Set(key, entry, utcExpiry);
+                await cache.SetAsync(key, entry, utcExpiry);
             }
             catch (Exception e)
             {
@@ -89,10 +105,15 @@ namespace Microsoft.Web.Redis
 
         public override void Remove(string key)
         {
+            RemoveAsync(key).Wait();
+        }
+
+        public override async Task RemoveAsync(string key)
+        {
             try
             {
                 GetAccessToCacheStore();
-                cache.Remove(key);
+                await cache.RemoveAsync(key);
             }
             catch (Exception e)
             {

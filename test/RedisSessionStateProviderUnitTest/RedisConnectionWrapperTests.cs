@@ -19,15 +19,15 @@ namespace Microsoft.Web.Redis.Tests
         private static RedisUtility RedisUtility = new RedisUtility(Utility.GetDefaultConfigUtility());
 
         [Fact]
-        public void UpdateExpiryTime_Valid()
+        public async Task UpdateExpiryTime_Valid()
         {
             string sessionId = "session_id";
             var mockRedisClient = A.Fake<IRedisClientConnection>();
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), sessionId);
-            redisConn.UpdateExpiryTime(90);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 2),
+            await redisConn.UpdateExpiryTimeAsync(90);
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 2),
                 A<object[]>.That.Matches(o => o.Length == 1))).MustHaveHappened();
         }
 
@@ -54,7 +54,7 @@ namespace Microsoft.Web.Redis.Tests
         }
 
         [Fact]
-        public void Set_NullData()
+        public async Task Set_NullData()
         {
             var mockRedisClient = A.Fake<IRedisClientConnection>();
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
@@ -62,12 +62,12 @@ namespace Microsoft.Web.Redis.Tests
             
             string sessionId = "session_id";
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), sessionId);
-            redisConn.Set(null, 90);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.Ignored, A<object[]>.Ignored)).MustNotHaveHappened();
+            await redisConn.SetAsync(null, 90);
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.Ignored, A<object[]>.Ignored)).MustNotHaveHappened();
         }
 
         [Fact]
-        public void Set_ValidData()
+        public async Task Set_ValidData()
         {
             string sessionId = "session_id";
             var mockRedisClient = A.Fake<IRedisClientConnection>();
@@ -77,157 +77,166 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), sessionId);
             ChangeTrackingSessionStateItemCollection data = new ChangeTrackingSessionStateItemCollection(RedisConnectionWrapper.redisUtility);
             data["key"] = "value";
-            redisConn.Set(data, 90);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 2), 
+            await redisConn.SetAsync(data, 90);
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 2), 
                 A<object[]>.That.Matches(o => o.Length == 4))).MustHaveHappened();
         }
 
         [Fact]
-        public void TryTakeWriteLockAndGetData_UnableToLock()
+        public async Task TryTakeWriteLockAndGetData_UnableToLock()
         {
             string id = "session_id";
             DateTime lockTime = DateTime.Now;
             int lockTimeout = 90;
-            object lockId;
-            ISessionStateItemCollection data;
-
+            
             object[] returnFromRedis = { "Diff-lock-id", "", "15", true };
 
             var mockRedisClient = A.Fake<IRedisClientConnection>();
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                 A<object[]>.That.Matches(o => o.Length == 2))).Returns(returnFromRedis);
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).Returns("Diff-lock-id");
-            A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored)).Returns(true);
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).Returns(15);
+            var callToEvalAsync = A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), 
+                A<object[]>.That.Matches(o => o.Length == 2)));
+            callToEvalAsync.Returns(Task.FromResult((object)returnFromRedis));
+
+            var callToGetLockId = A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored));
+            callToGetLockId.Returns("Diff-lock-id");
+            var callToIsLocked = A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored));
+            callToIsLocked.Returns(true);
+            var callToGetSessionTimeout = A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored));
+            callToGetSessionTimeout.Returns(15);
 
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
 
-            int sessionTimeout;
-            Assert.False(redisConn.TryTakeWriteLockAndGetData(lockTime, lockTimeout, out lockId, out data, out sessionTimeout));
-            Assert.Equal("Diff-lock-id", lockId);
-            Assert.Null(data);
-            Assert.Equal(15, sessionTimeout);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                A<object[]>.That.Matches(o => o.Length == 2))).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored)).MustHaveHappened();
+            var data = await redisConn.TryTakeWriteLockAndGetDataAsync(lockTime, lockTimeout);
+            Assert.False(data.IsLockTaken);
+            Assert.Equal("Diff-lock-id", data.LockId);
+            Assert.Null(data.SessionData);
+            Assert.Equal(15, data.SessionTimeout);
+
+            callToEvalAsync.MustHaveHappened();
+            callToGetLockId.MustHaveHappened();
+            callToIsLocked.MustHaveHappened();
             A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored)).MustNotHaveHappened();
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).MustHaveHappened();
+            callToGetSessionTimeout.MustHaveHappened();
         }
 
         [Fact]
-        public void TryTakeWriteLockAndGetData_UnableToLockWithSameLockId()
+        public async Task TryTakeWriteLockAndGetData_UnableToLockWithSameLockId()
         {
             string id = "session_id";
             DateTime lockTime = DateTime.Now;
             int lockTimeout = 90;
-            object lockId;
-            ISessionStateItemCollection data;
-
+            
             object[] returnFromRedis = { lockTime.Ticks.ToString(), "", "15", true };
 
             var mockRedisClient = A.Fake<IRedisClientConnection>();
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                 A<object[]>.That.Matches(o => o.Length == 2))).Returns(returnFromRedis);
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).Returns(lockTime.Ticks.ToString());
-            A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored)).Returns(true);
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).Returns(15);
+            var callToEvalAsync = A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
+                 A<object[]>.That.Matches(o => o.Length == 2)));
+            callToEvalAsync.Returns(Task.FromResult((object)returnFromRedis));
+            var callToGetLockId = A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored));
+            callToGetLockId.Returns(lockTime.Ticks.ToString());
+            var callToIsLocked = A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored));
+            callToIsLocked.Returns(true);
+            var callToGetSessionTimeout = A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored));
+            callToGetSessionTimeout.Returns(15);
 
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
 
-            int sessionTimeout;
-            Assert.False(redisConn.TryTakeWriteLockAndGetData(lockTime, lockTimeout, out lockId, out data, out sessionTimeout));
-            Assert.Equal(lockTime.Ticks.ToString(), lockId);
-            Assert.Null(data);
-            Assert.Equal(15, sessionTimeout);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                A<object[]>.That.Matches(o => o.Length == 2))).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored)).MustHaveHappened();
+            var data = await redisConn.TryTakeWriteLockAndGetDataAsync(lockTime, lockTimeout);
+            Assert.False(data.IsLockTaken);
+            Assert.Equal(lockTime.Ticks.ToString(), data.LockId);
+            Assert.Null(data.SessionData);
+            Assert.Equal(15, data.SessionTimeout);
+
+            callToEvalAsync.MustHaveHappened();
+            callToGetLockId.MustHaveHappened();
+            callToIsLocked.MustHaveHappened();
             A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored)).MustNotHaveHappened();
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).MustHaveHappened();
+            callToGetSessionTimeout.MustHaveHappened();
         }
 
         [Fact]
-        public void TryTakeWriteLockAndGetData_Valid()
+        public async Task TryTakeWriteLockAndGetData_Valid()
         {
             string id = "session_id";
             DateTime lockTime = DateTime.Now;
             int lockTimeout = 90;
-            object lockId;
-            ISessionStateItemCollection data;
-
+            
             object[] sessionData = { "Key", RedisUtility.GetBytesFromObject("value") };
             object[] returnFromRedis = { lockTime.Ticks.ToString(), sessionData, "15", false };
             ChangeTrackingSessionStateItemCollection sessionDataReturn = Utility.GetChangeTrackingSessionStateItemCollection();
             sessionDataReturn["key"] = "value";
 
             var mockRedisClient = A.Fake<IRedisClientConnection>();
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                 A<object[]>.That.Matches(o => o.Length == 2))).Returns(returnFromRedis);
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).Returns(lockTime.Ticks.ToString());
-            A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored)).Returns(false);
-            A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored)).Returns(sessionDataReturn);
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).Returns(15);
+            var callToEvalAsync = A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
+                 A<object[]>.That.Matches(o => o.Length == 2)));
+            callToEvalAsync.Returns(Task.FromResult((object)returnFromRedis));
+            var callToGetLockId = A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored));
+            callToGetLockId.Returns(lockTime.Ticks.ToString());
+            var callToIsLocked = A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored));
+            callToIsLocked.Returns(false);
+            var callToGetSessionData = A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored));
+            callToGetSessionData.Returns(sessionDataReturn);
+            var callToGetSessionTimeout = A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored));
+            callToGetSessionTimeout.Returns(15);
 
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
 
-            int sessionTimeout;
-            Assert.True(redisConn.TryTakeWriteLockAndGetData(lockTime, lockTimeout, out lockId, out data, out sessionTimeout));
-            Assert.Equal(lockTime.Ticks.ToString(), lockId);
-            Assert.Equal(1, data.Count);
-            Assert.Equal(15, sessionTimeout);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                A<object[]>.That.Matches(o => o.Length == 2))).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.IsLocked(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).MustHaveHappened();
+            var data = await redisConn.TryTakeWriteLockAndGetDataAsync(lockTime, lockTimeout);
+            Assert.True(data.IsLockTaken);
+            Assert.Equal(lockTime.Ticks.ToString(), data.LockId);
+            Assert.Equal(1, data.SessionData.Count);
+            Assert.Equal(15, data.SessionTimeout);
+
+            callToEvalAsync.MustHaveHappened();
+            callToGetLockId.MustHaveHappened();
+            callToIsLocked.MustHaveHappened();
+            callToGetSessionData.MustHaveHappened();
+            callToGetSessionTimeout.MustHaveHappened();
         }
 
         [Fact]
-        public void TryCheckWriteLockAndGetData_Valid()
+        public async Task TryCheckWriteLockAndGetData_Valid()
         {
             string id = "session_id";
-            object lockId;
-            ISessionStateItemCollection data;
-
             object[] sessionData = { "Key", RedisUtility.GetBytesFromObject("value") };
             object[] returnFromRedis = { "", sessionData, "15" };
             ChangeTrackingSessionStateItemCollection sessionDataReturn = Utility.GetChangeTrackingSessionStateItemCollection();
             sessionDataReturn["key"] = "value";
 
             var mockRedisClient = A.Fake<IRedisClientConnection>();
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                 A<object[]>.That.Matches(o => o.Length == 0))).Returns(returnFromRedis);
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).Returns("");
-            A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored)).Returns(sessionDataReturn);
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).Returns(15);
+            var callToEvalAsync = A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
+                 A<object[]>.That.Matches(o => o.Length == 0)));
+            callToEvalAsync.Returns(Task.FromResult((object)returnFromRedis));
+            var callToGetLockId = A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored));
+            callToGetLockId.Returns("");
+            var callToGetSessionData = A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored));
+            callToGetSessionData.Returns(sessionDataReturn);
+            var callToGetSessionTimeout = A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored));
+            callToGetSessionTimeout.Returns(15);
 
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
 
-            int sessionTimeout;
-            Assert.True(redisConn.TryCheckWriteLockAndGetData(out lockId, out data, out sessionTimeout));
-            Assert.Equal(null, lockId);
-            Assert.Equal(1, data.Count);
-            Assert.Equal(15, sessionTimeout);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
-                A<object[]>.That.Matches(o => o.Length == 0))).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetLockId(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetSessionData(A<object>.Ignored)).MustHaveHappened();
-            A.CallTo(() => mockRedisClient.GetSessionTimeout(A<object>.Ignored)).MustHaveHappened();
+            var data = await redisConn.TryCheckWriteLockAndGetDataAsync();
+            Assert.True(data.IsLockTaken);
+            Assert.Equal(null, data.LockId);
+            Assert.Equal(1, data.SessionData.Count);
+            Assert.Equal(15, data.SessionTimeout);
+
+            callToEvalAsync.MustHaveHappened();
+            callToGetLockId.MustHaveHappened();
+            callToGetSessionData.MustHaveHappened();
+            callToGetSessionTimeout.MustHaveHappened();
         }
 
         [Fact]
-        public void TryReleaseLockIfLockIdMatch_WriteLock()
+        public async Task TryReleaseLockIfLockIdMatch_WriteLock()
         {
             string id = "session_id";
             object lockId = DateTime.Now.Ticks;
@@ -237,13 +246,13 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
             
-            redisConn.TryReleaseLockIfLockIdMatch(lockId, 900);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3 && s[0].Equals(redisConn.Keys.LockKey)),
+            await redisConn.TryReleaseLockIfLockIdMatchAsync(lockId, 900);
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3 && s[0].Equals(redisConn.Keys.LockKey)),
                  A<object[]>.That.Matches(o => o.Length == 2))).MustHaveHappened();
         }
 
         [Fact]
-        public void TryRemoveIfLockIdMatch_Valid()
+        public async Task TryRemoveIfLockIdMatch_Valid()
         {
             string id = "session_id";
             object lockId = DateTime.Now.Ticks;
@@ -253,13 +262,13 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
             
-            redisConn.TryRemoveAndReleaseLockIfLockIdMatch(lockId);
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
+            await redisConn.TryRemoveAndReleaseLockIfLockIdMatchAsync(lockId);
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
                  A<object[]>.That.Matches(o => o.Length == 1))).MustHaveHappened();
         }
 
         [Fact]
-        public void TryUpdateIfLockIdMatchPrepare_NoUpdateNoDelete()
+        public async Task TryUpdateIfLockIdMatchPrepare_NoUpdateNoDelete()
         {
             string id = "session_id";
             int sessionTimeout = 900;
@@ -271,9 +280,9 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
-            redisConn.TryUpdateAndReleaseLockIfLockIdMatch(lockId, data, sessionTimeout);
+            await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(lockId, data, sessionTimeout);
 
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), A<object[]>.That.Matches(
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), A<object[]>.That.Matches(
                o => o.Length == 8 &&
                     o[2].Equals(0) &&
                     o[3].Equals(9) &&
@@ -285,7 +294,7 @@ namespace Microsoft.Web.Redis.Tests
         }
 
         [Fact]
-        public void TryUpdateIfLockIdMatchPrepare_Valid_OneUpdateOneDelete()
+        public async Task TryUpdateIfLockIdMatchPrepare_Valid_OneUpdateOneDelete()
         {
             string id = "session_id";
             int sessionTimeout = 900;
@@ -301,9 +310,9 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
-            redisConn.TryUpdateAndReleaseLockIfLockIdMatch(lockId, data, sessionTimeout);
+            await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(lockId, data, sessionTimeout);
 
-            A.CallTo(() => mockRedisClient.Eval(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), A<object[]>.That.Matches(
+            A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), A<object[]>.That.Matches(
                o => o.Length == 11 &&
                     o[2].Equals(1) &&
                     o[3].Equals(9) &&

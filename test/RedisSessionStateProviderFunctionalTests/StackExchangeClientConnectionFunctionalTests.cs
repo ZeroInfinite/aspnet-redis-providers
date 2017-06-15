@@ -1,4 +1,5 @@
-﻿using Microsoft.Web.Redis.Tests;
+﻿using System.Threading.Tasks;
+using Microsoft.Web.Redis.Tests;
 
 using Xunit;
 
@@ -7,7 +8,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
     public class StackExchangeClientConnectionFunctionalTests
     {
         [Fact]
-        public void Constructor_DatabaseIdFromConfigurationProperty()
+        public async Task Constructor_DatabaseIdFromConfigurationProperty()
         {
             using (RedisServer redisServer = new RedisServer())
             {
@@ -19,12 +20,12 @@ namespace Microsoft.Web.Redis.FunctionalTests
 
                 Assert.Equal(databaseId, connection.RealConnection.Database);
 
-                connection.Close();
+                await connection.CloseAsync();
             }
         }
 
         [Fact]
-        public void Constructor_DatabaseIdFromConnectionString()
+        public async Task Constructor_DatabaseIdFromConnectionString()
         {
             using (RedisServer redisServer = new RedisServer())
             {
@@ -36,12 +37,12 @@ namespace Microsoft.Web.Redis.FunctionalTests
 
                 Assert.Equal(databaseId, connection.RealConnection.Database);
 
-                connection.Close();
+                await connection.CloseAsync();
             }
         }
 
         [Fact]
-        public void Constructor_DatabaseIdFromConfigurationPropertyWhenNotSetInConnectionString()
+        public async Task Constructor_DatabaseIdFromConfigurationPropertyWhenNotSetInConnectionString()
         {
             using (RedisServer redisServer = new RedisServer())
             {
@@ -53,8 +54,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 StackExchangeClientConnection connection = new StackExchangeClientConnection(configuration);
 
                 Assert.Equal(databaseId, connection.RealConnection.Database);
-
-                connection.Close();
+                await connection.CloseAsync();
             }
         }
     }
