@@ -309,7 +309,7 @@ namespace Microsoft.Web.Redis
         {
             try
             {
-                if (LastException == null && lockId != null)
+                if (LastException == null)
                 {
                     LogUtility.LogInfo("RemoveItem => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
                     GetAccessToStore(id);

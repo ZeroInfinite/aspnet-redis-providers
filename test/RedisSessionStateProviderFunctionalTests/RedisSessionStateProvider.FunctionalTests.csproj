@@ -39,8 +39,8 @@
       <HintPath>..\..\packages\FakeItEasy.2.1.0\lib\net40\FakeItEasy.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AspNet.SessionState.SessionStateModule, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.SessionState.SessionStateModule.1.0.0\lib\Net462\Microsoft.AspNet.SessionState.SessionStateModule.dll</HintPath>
+    <Reference Include="Microsoft.AspNet.SessionState.SessionStateModule, Version=1.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.SessionState.SessionStateModule.1.1.0\lib\Net462\Microsoft.AspNet.SessionState.SessionStateModule.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="StackExchange.Redis.StrongName, Version=1.2.1.0, Culture=neutral, PublicKeyToken=c219ff1ca8c2ce46, processorArchitecture=MSIL">
