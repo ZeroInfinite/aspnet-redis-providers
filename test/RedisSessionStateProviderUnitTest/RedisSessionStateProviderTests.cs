@@ -205,7 +205,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisSessionStateProvider sessionStateStore = new RedisSessionStateProvider();
             sessionStateStore.cache = mockCache;
             await sessionStateStore.RemoveItemAsync(null, id, "lockId", null, CancellationToken.None);
-            A.CallTo(() => mockCache.TryRemoveAndReleaseLockIfLockIdMatchAsync(A<object>.Ignored)).MustHaveHappened();
+            A.CallTo(() => mockCache.TryRemoveAndReleaseLockAsync(A<object>.Ignored)).MustHaveHappened();
         }
 
         [Fact]
@@ -263,7 +263,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisSessionStateProvider sessionStateStore = new RedisSessionStateProvider();
             sessionStateStore.cache = mockCache;
             await sessionStateStore.SetAndReleaseItemExclusiveAsync(null, id, sssd, 7, false, CancellationToken.None);
-            A.CallTo(() => mockCache.TryUpdateAndReleaseLockIfLockIdMatchAsync(A<object>.Ignored, A<ISessionStateItemCollection>.Ignored, 900)).MustNotHaveHappened();
+            A.CallTo(() => mockCache.TryUpdateAndReleaseLockAsync(A<object>.Ignored, A<ISessionStateItemCollection>.Ignored, 900)).MustNotHaveHappened();
         }
 
         [Fact]
@@ -280,7 +280,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisSessionStateProvider sessionStateStore = new RedisSessionStateProvider();
             sessionStateStore.cache = mockCache;
             await sessionStateStore.SetAndReleaseItemExclusiveAsync(null, id, sssd, 7, false, CancellationToken.None);
-            A.CallTo(() => mockCache.TryUpdateAndReleaseLockIfLockIdMatchAsync(A<object>.Ignored, 
+            A.CallTo(() => mockCache.TryUpdateAndReleaseLockAsync(A<object>.Ignored, 
                 A<ChangeTrackingSessionStateItemCollection>.That.Matches(o => o.Count == 0 && o.GetModifiedKeys().Count == 0 && o.GetDeletedKeys().Count == 1), 900)).MustHaveHappened();
         }
 
@@ -297,7 +297,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisSessionStateProvider sessionStateStore = new RedisSessionStateProvider();
             sessionStateStore.cache = mockCache;
             await sessionStateStore.SetAndReleaseItemExclusiveAsync(null, id, sssd, 7, false, CancellationToken.None);
-            A.CallTo(() => mockCache.TryUpdateAndReleaseLockIfLockIdMatchAsync(A<object>.Ignored, 
+            A.CallTo(() => mockCache.TryUpdateAndReleaseLockAsync(A<object>.Ignored, 
                 A<ChangeTrackingSessionStateItemCollection>.That.Matches(o => o.Count == 1 && o.GetModifiedKeys().Count == 1 && o.GetDeletedKeys().Count == 0), 900)).MustHaveHappened();  
         }
     }

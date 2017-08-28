@@ -262,7 +262,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
             
-            await redisConn.TryRemoveAndReleaseLockIfLockIdMatchAsync(lockId);
+            await redisConn.TryRemoveAndReleaseLockAsync(lockId);
             A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3),
                  A<object[]>.That.Matches(o => o.Length == 1))).MustHaveHappened();
         }
@@ -280,7 +280,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
-            await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(lockId, data, sessionTimeout);
+            await redisConn.TryUpdateAndReleaseLockAsync(lockId, data, sessionTimeout);
 
             A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), A<object[]>.That.Matches(
                o => o.Length == 8 &&
@@ -310,7 +310,7 @@ namespace Microsoft.Web.Redis.Tests
             RedisConnectionWrapper.sharedConnection = new RedisSharedConnection(null, null);
             RedisConnectionWrapper.sharedConnection.connection = mockRedisClient;
             RedisConnectionWrapper redisConn = new RedisConnectionWrapper(Utility.GetDefaultConfigUtility(), id);
-            await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(lockId, data, sessionTimeout);
+            await redisConn.TryUpdateAndReleaseLockAsync(lockId, data, sessionTimeout);
 
             A.CallTo(() => mockRedisClient.EvalAsync(A<string>.Ignored, A<string[]>.That.Matches(s => s.Length == 3), A<object[]>.That.Matches(
                o => o.Length == 11 &&

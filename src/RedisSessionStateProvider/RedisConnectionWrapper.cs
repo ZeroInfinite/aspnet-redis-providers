@@ -279,7 +279,7 @@ namespace Microsoft.Web.Redis
 
         // KEYS = { write-lock-id, data-id, internal-id}
         // ARGV = { write-lock-value }
-        static readonly string removeIfLockMatchScript = (@" 
+        static readonly string removeSessionScript = (@" 
                 if ARGV[1] ~= '' then
                     local lockValue = redis.call('GET',KEYS[1])
                     if lockValue ~=  ARGV[1] then
@@ -291,15 +291,15 @@ namespace Microsoft.Web.Redis
                 redis.call('DEL',KEYS[1])
                 ");
         
-        public async Task TryRemoveAndReleaseLockIfLockIdMatchAsync(object lockId)
+        public async Task TryRemoveAndReleaseLockAsync(object lockId)
         {
             string[] keyArgs = { Keys.LockKey, Keys.DataKey, Keys.InternalKey };
             lockId = (lockId == null) ? "" : lockId;
             object[] valueArgs = { lockId.ToString() };
-            await redisConnection.EvalAsync(removeIfLockMatchScript, keyArgs, valueArgs);
+            await redisConnection.EvalAsync(removeSessionScript, keyArgs, valueArgs);
         }
 
-/*-------Start of TryUpdateIfLockIdMatch operation-----------------------------------------------------------------------------------------------------------------------------------------------*/
+/*-------Start of TryUpdate operation-----------------------------------------------------------------------------------------------------------------------------------------------*/
 
         // KEYS[1] = write-lock-id, KEYS[2] = data-id, KEYS[3] = internal-id
         // ARGV[1] = write-lock-value, ARGV[2] = session time out, 
@@ -307,7 +307,7 @@ namespace Microsoft.Web.Redis
         // ARGV[6] = number of items updated, ARGV[7] = number of items updated start index in ARGV, ARGV[8] = number of items updated end index in ARGV,
         // ARGV[9...] = actual data
         // this order should not change LUA script depends on it
-        static readonly string removeAndUpdateIfLockMatchScript = (@"
+        static readonly string removeAndUpdateSessionDataScript = (@"
                 if ARGV[1] ~= '' then
                     local writeLockValueFromCache = redis.call('GET',KEYS[1])
                     if writeLockValueFromCache ~= ARGV[1] then
@@ -321,7 +321,7 @@ namespace Microsoft.Web.Redis
                 redis.call('EXPIRE',KEYS[3],ARGV[2]) 
                 redis.call('DEL',KEYS[1])");
 
-        private bool TryUpdateIfLockIdMatchPrepare(object lockId, ISessionStateItemCollection data, int sessionTimeout, out string[] keyArgs, out object[] valueArgs)
+        private bool TryUpdateAndReleaseLockPrepare(object lockId, ISessionStateItemCollection data, int sessionTimeout, out string[] keyArgs, out object[] valueArgs)
         {
             keyArgs = null;
             valueArgs = null;
@@ -353,13 +353,13 @@ namespace Microsoft.Web.Redis
             return false;
         }
 
-        public async Task TryUpdateAndReleaseLockIfLockIdMatchAsync(object lockId, ISessionStateItemCollection data, int sessionTimeout)
+        public async Task TryUpdateAndReleaseLockAsync(object lockId, ISessionStateItemCollection data, int sessionTimeout)
         {
             string[] keyArgs;
             object[] valueArgs;
-            if (TryUpdateIfLockIdMatchPrepare(lockId, data, sessionTimeout, out keyArgs, out valueArgs))
+            if (TryUpdateAndReleaseLockPrepare(lockId, data, sessionTimeout, out keyArgs, out valueArgs))
             {
-                await redisConnection.EvalAsync(removeAndUpdateIfLockMatchScript, keyArgs, valueArgs);
+                await redisConnection.EvalAsync(removeAndUpdateSessionDataScript, keyArgs, valueArgs);
             }
         }
         

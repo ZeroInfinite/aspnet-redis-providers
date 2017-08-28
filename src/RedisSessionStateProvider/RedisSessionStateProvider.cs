@@ -311,9 +311,9 @@ namespace Microsoft.Web.Redis
             {
                 if (LastException == null)
                 {
-                    LogUtility.LogInfo("RemoveItem => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
+                    LogUtility.LogInfo("RemoveItem => Session Id: {0}, Session provider object: {1}, Lock ID: {2}.", id, this.GetHashCode(), lockId);
                     GetAccessToStore(id);
-                    await cache.TryRemoveAndReleaseLockIfLockIdMatchAsync(lockId);
+                    await cache.TryRemoveAndReleaseLockAsync(lockId);
                 }
             }
             catch (Exception e)
@@ -402,8 +402,8 @@ namespace Microsoft.Web.Redis
                                 item.Items.Remove("SessionStateActions");
                             }
                             // Converting timout from min to sec
-                            await cache.TryUpdateAndReleaseLockIfLockIdMatchAsync(lockId, item.Items, (item.Timeout * FROM_MIN_TO_SEC));
-                            LogUtility.LogInfo("SetAndReleaseItemExclusive => Session Id: {0}, Session provider object: {1} => updated item in session.", id, this.GetHashCode());
+                            await cache.TryUpdateAndReleaseLockAsync(lockId, item.Items, (item.Timeout * FROM_MIN_TO_SEC));
+                            LogUtility.LogInfo("SetAndReleaseItemExclusive => Session Id: {0}, Session provider object: {1} => updated item in session, Lock ID: {2}.", id, this.GetHashCode(), lockId);
                         }
                     }
                 }

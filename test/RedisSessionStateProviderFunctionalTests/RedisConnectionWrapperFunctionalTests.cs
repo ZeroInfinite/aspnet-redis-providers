@@ -513,7 +513,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 Assert.Equal(lockTime.Ticks.ToString(), dataFromRedis.LockId.ToString());
                 Assert.Equal(1, dataFromRedis.SessionData.Count);
 
-                await redisConn.TryRemoveAndReleaseLockIfLockIdMatchAsync(dataFromRedis.LockId);
+                await redisConn.TryRemoveAndReleaseLockAsync(dataFromRedis.LockId);
 
                 // Get actual connection and get data from redis
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);
@@ -543,7 +543,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 Assert.Null(dataFromRedis.LockId);
                 Assert.Equal(1, dataFromRedis.SessionData.Count);
 
-                await redisConn.TryRemoveAndReleaseLockIfLockIdMatchAsync(null);
+                await redisConn.TryRemoveAndReleaseLockAsync(null);
 
                 // Get actual connection and get data from redis
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);
@@ -581,7 +581,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
 
                 dataFromRedis.SessionData["key2"] = "value2-updated";
                 dataFromRedis.SessionData.Remove("key3");
-                await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
+                await redisConn.TryUpdateAndReleaseLockAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
 
                 // Get actual connection and get data from redis
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);
@@ -627,7 +627,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 Assert.Equal("value3", dataFromRedis.SessionData["key3"]);
 
                 dataFromRedis.SessionData["key2"] = "value2-updated";
-                await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
+                await redisConn.TryUpdateAndReleaseLockAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
 
                 // Get actual connection and get data from redis
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);
@@ -674,7 +674,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 Assert.Equal("value3", dataFromRedis.SessionData["key3"]);
 
                 dataFromRedis.SessionData.Remove("key3");
-                await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
+                await redisConn.TryUpdateAndReleaseLockAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
 
                 // Get actual connection and get data from redis
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);
@@ -715,7 +715,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 Assert.Equal(2, dataFromRedis.SessionData.Count);
 
                 // Update expiry time to only 1 sec and than verify that.
-                await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 1);
+                await redisConn.TryUpdateAndReleaseLockAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 1);
                 
                 // Wait for 1.1 seconds so that data will expire
                 System.Threading.Thread.Sleep(1100);
@@ -746,7 +746,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 DateTime lockTime = DateTime.Now;
                 GetItemData dataFromRedis = await redisConn.TryTakeWriteLockAndGetDataAsync(lockTime, 120000);
                 Assert.True(dataFromRedis.IsLockTaken);
-                await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
+                await redisConn.TryUpdateAndReleaseLockAsync(dataFromRedis.LockId, dataFromRedis.SessionData, 900);
 
                 // Get actual connection and check that lock is released
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);
@@ -778,7 +778,7 @@ namespace Microsoft.Web.Redis.FunctionalTests
                 
                 // update session data without lock id (to support lock free session)
                 dataFromRedis.SessionData["key1"] = "value1-updated";
-                await redisConn.TryUpdateAndReleaseLockIfLockIdMatchAsync(null, dataFromRedis.SessionData, 900);
+                await redisConn.TryUpdateAndReleaseLockAsync(null, dataFromRedis.SessionData, 900);
 
                 // Get actual connection and get data from redis
                 IDatabase actualConnection = GetRealRedisConnection(redisConn);

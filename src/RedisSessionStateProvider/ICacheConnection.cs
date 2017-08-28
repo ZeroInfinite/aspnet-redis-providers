@@ -17,8 +17,8 @@ namespace Microsoft.Web.Redis
         Task<GetItemData> TryTakeWriteLockAndGetDataAsync(DateTime lockTime, int lockTimeout);
         Task<GetItemData> TryCheckWriteLockAndGetDataAsync();
         Task TryReleaseLockIfLockIdMatchAsync(object lockId, int sessionTimeout);
-        Task TryRemoveAndReleaseLockIfLockIdMatchAsync(object lockId);
-        Task TryUpdateAndReleaseLockIfLockIdMatchAsync(object lockId, ISessionStateItemCollection data, int sessionTimeout);
+        Task TryRemoveAndReleaseLockAsync(object lockId);
+        Task TryUpdateAndReleaseLockAsync(object lockId, ISessionStateItemCollection data, int sessionTimeout);
         TimeSpan GetLockAge(object lockId);
     }
 }
